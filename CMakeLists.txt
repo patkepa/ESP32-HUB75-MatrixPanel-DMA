@@ -11,6 +11,9 @@ else()
     list(APPEND build_dependencies esp_lcd driver)
 endif()
 
+# Add esp_driver_gpio for GPIO operations
+list(APPEND build_dependencies esp_driver_gpio)
+
 if(${target} STREQUAL "esp32s3")
   list(APPEND extra_srcs src/platforms/${target}/gdma_lcd_parallel16.cpp)
 
