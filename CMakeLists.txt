@@ -31,11 +31,12 @@ idf_component_register(SRCS "src/platforms/esp32/esp32_i2s_parallel_dma.cpp" "sr
 # use `target_link_libraries` instead. This is the method used by Arduino's CMakeLists.txt file.
 idf_build_get_property(components BUILD_COMPONENTS)
 foreach(component_name IN LISTS build_dependencies)
-  if (NOT ${component_name} IN_LIST components)
-    message(FATAL_ERROR "Missing component: ${component_name}")
+  if (${component_name} IN_LIST components)
+    idf_component_get_property(lib_name ${component_name} COMPONENT_LIB)
+    target_link_libraries(${COMPONENT_LIB} PUBLIC ${lib_name})
+  else()
+    message(WARNING "Component ${component_name} not found, skipping")
   endif()
-  idf_component_get_property(lib_name ${component_name} COMPONENT_LIB)
-  target_link_libraries(${COMPONENT_LIB} PUBLIC ${lib_name})
 endforeach()
 
 # In case you are running into issues with "missing" header files from 3rd party libraries
