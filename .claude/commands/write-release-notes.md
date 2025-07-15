@@ -1,0 +1,1 @@
+Go through all commits since [given time], and create technical document on what was achieved during that time. Introduce separate pages for features, bugfixes, docs and others. When writing it, be more humble than boasting for technical details. If something is untested, mention it.
