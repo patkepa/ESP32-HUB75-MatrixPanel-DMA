@@ -26,14 +26,7 @@
  *******************************************************************/
 
 #include "ESP32-HUB75-MatrixPanel-I2S-DMA.h"
-#ifdef USE_GFX_LITE
-// Slimmed version of Adafruit GFX + FastLED: https://github.com/mrcodetastic/GFX_Lite
-    #include "GFX_Lite.h"
-    #include <Fonts/FreeSansBold12pt7b.h>
-#elif !defined NO_GFX
-    #include "Adafruit_GFX.h" // Adafruit class with all the other stuff
-    #include <Fonts/FreeSansBold12pt7b.h>
-#endif
+// GFX dependencies removed - no longer using Adafruit_GFX or GFX_Lite
 
 #warning "VirtualMatrixPanel is depreciated. Please include 'ESP32-HUB75-VirtualMatrixPanel_T.hpp' and use VirtualMatrixPanel_T instead. Refer to the documentation and VirtualMatrixPanel.ino example."
 
@@ -76,22 +69,11 @@ enum PANEL_CHAIN_TYPE
 
 
 //[[deprecated("VirtualMatrixPanel is depreciated. Please include 'ESP32-VirtualMatrixPanel_T.hpp' and use VirtualMatrixPanel_T instead. Refer to the documentation and VirtualMatrixPanel.ino example.")]]
-#ifdef USE_GFX_LITE
-class VirtualMatrixPanel : public GFX
-#elif !defined NO_GFX
-class VirtualMatrixPanel : public Adafruit_GFX
-#else
 class VirtualMatrixPanel
-#endif
 {
 
 public:
     VirtualMatrixPanel(MatrixPanel_I2S_DMA &disp, int _vmodule_rows, int _vmodule_cols, int _panelResX, int _panelResY, PANEL_CHAIN_TYPE _panel_chain_type = CHAIN_NONE)
-#ifdef USE_GFX_LITE
-        : GFX(_vmodule_cols * _panelResX, _vmodule_rows * _panelResY)
-#elif !defined NO_GFX
-        : Adafruit_GFX(_vmodule_cols * _panelResX, _vmodule_rows * _panelResY)
-#endif
     {
         this->display = &disp;
 
@@ -131,16 +113,9 @@ public:
     void clearScreen() { display->clearScreen(); }
     void drawPixelRGB888(int16_t x, int16_t y, uint8_t r, uint8_t g, uint8_t b);
 
-#ifdef USE_GFX_LITE
-    // 24bpp FASTLED CRGB colour struct support
-    void fillScreen(CRGB color);
-    void drawPixel(int16_t x, int16_t y, CRGB color);
-#endif
 
-#ifdef NO_GFX
     inline uint16_t width() const { return _virtualResX; }
     inline uint16_t height() const { return _virtualResY; }
-#endif
 
     uint16_t color444(uint8_t r, uint8_t g, uint8_t b) { return display->color444(r, g, b); }
     uint16_t color565(uint8_t r, uint8_t g, uint8_t b) { return display->color565(r, g, b); }
@@ -190,23 +165,11 @@ private:
 inline VirtualCoords VirtualMatrixPanel::getCoords(int16_t virt_x, int16_t virt_y)
 {
 	
-#if !defined NO_GFX
-	// I don't give any support if Adafruit GFX isn't being used.
-	
-    if (virt_x < 0 || virt_x >= _width || virt_y < 0 || virt_y >= _height) // _width and _height are defined in the adafruit constructor
+    if (virt_x < 0 || virt_x >= _virtualResX || virt_y < 0 || virt_y >= _virtualResY) // Check against virtual resolution
     {                             // Co-ordinates go from 0 to X-1 remember! otherwise they are out of range!
-        coords.x = coords.y = -1; // By defalt use an invalid co-ordinates that will be rejected by updateMatrixDMABuffer
+        coords.x = coords.y = -1; // By default use an invalid co-ordinates that will be rejected by updateMatrixDMABuffer
         return coords;
     }
-#else
-	
-    if (virt_x < 0 || virt_x >= _virtualResX || virt_y < 0 || virt_y >= _virtualResY) // _width and _height are defined in the adafruit constructor
-    {                             // Co-ordinates go from 0 to X-1 remember! otherwise they are out of range!
-        coords.x = coords.y = -1; // By defalt use an invalid co-ordinates that will be rejected by updateMatrixDMABuffer
-        return coords;
-    }
-	
-#endif
     
     // Do we want to rotate?
     switch (_rotate) {
@@ -465,55 +428,26 @@ inline void VirtualMatrixPanel::drawPixelRGB888(int16_t x, int16_t y, uint8_t r,
     this->display->drawPixelRGB888(coords.x, coords.y, r, g, b);
 }
 
-#ifdef USE_GFX_LITE
-// Support for CRGB values provided via FastLED
-inline void VirtualMatrixPanel::drawPixel(int16_t x, int16_t y, CRGB color)
-{
-    this->getCoords(x, y);
-    this->display->drawPixel(coords.x, coords.y, color);
-}
-
-inline void VirtualMatrixPanel::fillScreen(CRGB color)
-{
-    this->display->fillScreen(color);
-}
-#endif
 
 inline void VirtualMatrixPanel::setRotation(uint8_t rotate)
 {
   if(rotate < 4 && rotate >= 0)
     _rotate = rotate;
 
-  // Change the _width and _height variables used by the underlying adafruit gfx library.
   // Actual pixel rotation / mapping is done in the getCoords function.
-#ifdef NO_GFX
-    int8_t rotation;
-#endif
-  rotation = (rotate & 3);
+  int8_t rotation = (rotate & 3);
   switch (rotation) {
   case 0: // nothing
   case 2: // 180
 	_virtualResX = virtualResX;
 	_virtualResY = virtualResY;
-
-#if !defined NO_GFX	
-    _width = virtualResX; // adafruit base class 
-    _height = virtualResY; // adafruit base class 
-#endif 
     break;
   case 1:
   case 3:
 	_virtualResX = virtualResY;
 	_virtualResY = virtualResX;
-	
-#if !defined NO_GFX		
-    _width = virtualResY; // adafruit base class 
-    _height = virtualResX; // adafruit base class 
-#endif 	
     break;
   }
-
-  
 }
 
 inline void VirtualMatrixPanel::setPhysicalPanelScanRate(PANEL_SCAN_RATE rate)
@@ -534,23 +468,6 @@ inline void VirtualMatrixPanel::setZoomFactor(int scale)
 
 }
 
-#ifndef NO_GFX
-inline void VirtualMatrixPanel::drawDisplayTest()
-{
-	// Write to the underlying panels only via the dma_display instance.
-    this->display->setFont(&FreeSansBold12pt7b);
-    this->display->setTextColor(this->display->color565(255, 255, 0));
-    this->display->setTextSize(1);
-
-    for (int panel = 0; panel < vmodule_cols * vmodule_rows; panel++)
-    {
-        int top_left_x = (panel == 0) ? 0 : (panel * panelResX);
-        this->display->drawRect(top_left_x, 0, panelResX, panelResY, this->display->color565(0, 255, 0));
-        this->display->setCursor((panel * panelResX) + 2, panelResY - 4);
-        this->display->print((vmodule_cols * vmodule_rows) - panel);
-    }
-}
-#endif
 
 
 #endif

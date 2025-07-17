@@ -5,11 +5,14 @@
 cmake_minimum_required(VERSION 3.5)
 idf_build_get_property(target IDF_TARGET)
 
-if(ARDUINO_ARCH_ESP32 OR CONFIG_ESP32_HUB75_USE_GFX)
-    list(APPEND build_dependencies arduino Adafruit-GFX-Library)
-else()
-    list(APPEND build_dependencies esp_lcd driver)
-endif()
+# Force NO_GFX mode - no Arduino/GFX dependencies
+list(APPEND build_dependencies esp_lcd driver)
+
+# Add esp_driver_gpio for GPIO operations
+list(APPEND build_dependencies esp_driver_gpio)
+
+# Add esp_driver_i2s for I2S operations
+list(APPEND build_dependencies esp_driver_i2s)
 
 if(${target} STREQUAL "esp32s3")
   list(APPEND extra_srcs src/platforms/${target}/gdma_lcd_parallel16.cpp)
@@ -31,11 +34,12 @@ idf_component_register(SRCS "src/platforms/esp32/esp32_i2s_parallel_dma.cpp" "sr
 # use `target_link_libraries` instead. This is the method used by Arduino's CMakeLists.txt file.
 idf_build_get_property(components BUILD_COMPONENTS)
 foreach(component_name IN LISTS build_dependencies)
-  if (NOT ${component_name} IN_LIST components)
-    message(FATAL_ERROR "Missing component: ${component_name}")
+  if (${component_name} IN_LIST components)
+    idf_component_get_property(lib_name ${component_name} COMPONENT_LIB)
+    target_link_libraries(${COMPONENT_LIB} PUBLIC ${lib_name})
+  else()
+    message(WARNING "Component ${component_name} not found, skipping")
   endif()
-  idf_component_get_property(lib_name ${component_name} COMPONENT_LIB)
-  target_link_libraries(${COMPONENT_LIB} PUBLIC ${lib_name})
 endforeach()
 
 # In case you are running into issues with "missing" header files from 3rd party libraries
@@ -46,16 +50,15 @@ endforeach()
 # target_compile_options(${COMPONENT_TARGET} PUBLIC -DUSE_GFX_ROOT)
 # target_compile_options(${COMPONENT_TARGET} PUBLIC -DNO_GFX)
 
-# esp-idf does not have any GFX library support yet, so we need to define NO_GFX
-if(ARDUINO_ARCH_ESP32 OR CONFIG_ESP32_HUB75_USE_GFX)
-else()
-    target_compile_options(${COMPONENT_TARGET} PUBLIC -DNO_GFX)
-    if(${target} STREQUAL "esp32s3")
-		# Don't enable PSRAM based framebuffer just because it's an S3.
-		# This is an advanced option and should only be used with an S3 with Octal-SPI RAM.
-        # target_compile_options(${COMPONENT_TARGET} PUBLIC -DSPIRAM_FRAMEBUFFER)
-		target_compile_options(${COMPONENT_TARGET} PUBLIC)
-    endif()
+# Force NO_GFX mode permanently
+message(STATUS "ESP32-HUB75-MatrixPanel-DMA: Using NO_GFX mode (forced)")
+target_compile_options(${COMPONENT_TARGET} PUBLIC -DNO_GFX)
+
+if(${target} STREQUAL "esp32s3")
+	# Don't enable PSRAM based framebuffer just because it's an S3.
+	# This is an advanced option and should only be used with an S3 with Octal-SPI RAM.
+    # target_compile_options(${COMPONENT_TARGET} PUBLIC -DSPIRAM_FRAMEBUFFER)
+	target_compile_options(${COMPONENT_TARGET} PUBLIC)
 endif()
 
 # You can also use multiple options like this
