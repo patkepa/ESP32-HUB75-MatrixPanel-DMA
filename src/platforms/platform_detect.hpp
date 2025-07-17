@@ -42,8 +42,7 @@ Modified heavily for the ESP32 HUB75 DMA library by:
   #if defined(SPIRAM_DMA_BUFFER) && defined (CONFIG_IDF_TARGET_ESP32S3)       
    #pragma message "Enabling use of PSRAM/SPIRAM based DMA Buffer"
    
-   // Disable fast functions because I don't understand the interaction with DMA PSRAM and the CPU->DMA->SPIRAM Cache implications..
-   #define NO_FAST_FUNCTIONS 1
+   // Fast functions have been removed as part of removing GFX support
 
   #endif
 

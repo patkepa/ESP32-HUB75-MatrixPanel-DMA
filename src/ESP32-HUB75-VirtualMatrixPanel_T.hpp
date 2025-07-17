@@ -8,8 +8,8 @@
  *	 - Scan type mapping (via a class, default is STANDARD_TWO_SCAN)
  *	 - A compile‐time scale factor (each virtual pixel is drawn as a block)
  *
- * Runtime rotation is supported via setRotation(). Depending on the build options,
- * the class conditionally inherits from Adafruit_GFX, GFX_Lite, or stands alone.
+ * Runtime rotation is supported via setRotation(). The class no longer depends on
+ * any GFX library and operates as a standalone coordinate mapping system.
  * 
  * This class is used to accomplish two objectives:
  *	 1) Create a much larger display out of a number of physical LED panels
@@ -37,11 +37,7 @@
 //#include <cstdint>
 #include "ESP32-HUB75-MatrixPanel-I2S-DMA.h"
 
-#ifdef USE_GFX_LITE
-  #include "GFX_Lite.h"
-#elif !defined(NO_GFX)
-  #include "Adafruit_GFX.h"
-#endif
+// GFX dependencies removed - no longer using Adafruit_GFX or GFX_Lite
 
 // ----------------------------------------------------------------------
 // Data structures and enums
@@ -176,25 +172,11 @@ struct ScanTypeMapping {
 //	 - ScanTypeMapping: a policy type implementing a static "apply" function 
 //					   (default is ScanTypeMapping<STANDARD_TWO_SCAN>).
 //	 - ScaleFactor: a compile–time zoom factor (must be >= 1).
-#ifdef USE_GFX_LITE
-template <PANEL_CHAIN_TYPE ChainScanType,
-		  class ScanTypeMapping = ScanTypeMapping<STANDARD_TWO_SCAN>,
-		  int ScaleFactor = 1>
-class VirtualMatrixPanel_T : public GFX {
-public:
-#elif !defined(NO_GFX)
-template <PANEL_CHAIN_TYPE ChainScanType,
-		  class ScanTypeMapping = ScanTypeMapping<STANDARD_TWO_SCAN>,
-		  int ScaleFactor = 1>
-class VirtualMatrixPanel_T : public Adafruit_GFX {
-public:
-#else
 template <PANEL_CHAIN_TYPE ChainScanType,
 		  class ScanTypeMapping = ScanTypeMapping<STANDARD_TWO_SCAN>,
 		  int ScaleFactor = 1>
 class VirtualMatrixPanel_T {
 public:
-#endif
 
 	// Constructor: pass the underlying MatrixPanel_I2S_DMA display,
 	// virtual module dimensions, and physical panel resolution.
@@ -203,12 +185,7 @@ public:
 						uint8_t _vmodule_cols,
 						uint8_t _panel_res_x,
 						uint8_t _panel_res_y)
-#ifdef USE_GFX_LITE
-	  : GFX(_vmodule_cols * _panel_res_x, _vmodule_rows * _panel_res_y),
-#elif !defined(NO_GFX)
-	  : Adafruit_GFX(_vmodule_cols * _panel_res_x, _vmodule_rows * _panel_res_y),
-#endif
-		panel_res_x(_panel_res_x),
+	  : panel_res_x(_panel_res_x),
 		panel_res_y(_panel_res_y),
 		panel_pixel_base(_panel_res_x), // default pixel base is panel_res_x
 		vmodule_rows(_vmodule_rows),
@@ -265,64 +242,7 @@ public:
 		display->drawPixelRGB888(coords.x, coords.y, r, g, b);	
 	}
 
-#ifdef USE_GFX_LITE
-	inline void drawPixel(int16_t x, int16_t y, CRGB color) {
-		//VirtualCoords v = getCoords(x, y);
-		//display->drawPixel(v.x, v.y, color);
-		
-		calcPhysicalToElectricalCoords(x , y);
-		display->drawPixel(coords.x, coords.y, color);
-		
-	}
 
-	inline void fillScreen(CRGB color) {
-		display->fillScreen(color);
-	}
-#endif
-
-#ifndef NO_GFX
-	inline void drawDisplayTest() {
-
-		// Call ourself as we need to re-map pixels if we're using our own ScanTypeMapping
-		// Note: Will mean this display test will be impacted by chaining approach etc.
-		// this->setFont(&FreeSansBold12pt7b);	
-		this->setTextColor(display->color565(255, 255, 0));
-		// this->setTextSize(1);
-		for (int col = 0; col < vmodule_cols; col++) {
-			for (int row = 0; row < vmodule_rows; row++) {
-
-				int start_x = col * panel_res_x;
-				int start_y = row * panel_res_y;
-
-				int panel_id = col + (row * vmodule_cols) + 1;
-				//int top_left_x = panel * panel_res_x;
-				this->drawRect(start_x, start_y, panel_res_x, panel_res_y, this->color565(0, 255, 0));
-				this->setCursor(start_x + panel_res_x/2 - 2, start_y + panel_res_y/2 - 4);
-				this->print(panel_id);
-
-				//log_d("drawDisplayTest() Panel: %d, start_x: %d, start_y: %d", panel_id, start_x, start_y);
-			}
-		}  
-		
-	}
-
-	inline void drawDisplayTestDMA()
-	{
-		// Write to the underlying panels only via the dma_display instance.
-		// This only works on standard panels with a linear mapping (i.e. two-scan).
-		this->display->setTextColor(this->display->color565(255, 255, 0));
-		this->display->setTextSize(1);
-	
-		for (int panel = 0; panel < vmodule_cols * vmodule_rows; panel++)
-		{
-			int top_left_x = panel * panel_res_x;
-			this->display->drawRect(top_left_x, 0, panel_res_x, panel_res_y, this->display->color565(0, 255, 0));
-			this->display->setCursor((panel * panel_res_x) + 6, panel_res_y - 12);
-			this->display->print((vmodule_cols * vmodule_rows) - panel);
-		}
-	}
-
-#endif
 
 	inline void clearScreen() { display->clearScreen(); }
 
@@ -336,27 +256,20 @@ public:
 	inline void setRotation(uint8_t rotate) {
 		if (rotate < 4)
 			_rotate = rotate;
-#ifdef NO_GFX
-		// When NO_GFX is defined, update _virtual_res_x/_virtual_res_y as needed.
-#else
+			
 		uint8_t rotation = (rotate & 3);
 		switch (rotation) {
 			case 0:
 			case 2:
 				_virtual_res_x = virtual_res_x;
 				_virtual_res_y = virtual_res_y;
-				_width = virtual_res_x;
-				_height = virtual_res_y;
 				break;
 			case 1:
 			case 3:
 				_virtual_res_x = virtual_res_y;
 				_virtual_res_y = virtual_res_x;
-				_width = virtual_res_y;
-				_height = virtual_res_x;
 				break;
 		}
-#endif
 	}
 
 	// ------------------------------------------------------------------
@@ -370,11 +283,7 @@ public:
 	// VirtualCoords getCoords(int16_t virt_x, int16_t virt_y) {
 	void calcPhysicalToElectricalCoords(int16_t virt_x, int16_t virt_y) {
 		
-#ifdef NO_GFX
 		if (virt_x < 0 || virt_x >= _virtual_res_x || virt_y < 0 || virt_y >= _virtual_res_y) {
-#else
-		if (virt_x < 0 || virt_x >= _width || virt_y < 0 || virt_y >= _height) {
-#endif
 			coords.x = coords.y = -1;
 			return;
 			//return coords;
@@ -475,10 +384,8 @@ public:
 
 	}
 
-#ifdef NO_GFX
 	inline uint16_t width()	 const { return _virtual_res_x; }
 	inline uint16_t height() const { return _virtual_res_y; }
-#endif
 
 	// ------------------------------------------------------------------
 	// Data members (public for compatibility)
