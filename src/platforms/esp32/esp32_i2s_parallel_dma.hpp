@@ -34,11 +34,12 @@ Contributors:
 
 #include <sys/types.h>
 #include <freertos/FreeRTOS.h>
-//#include <driver/i2s.h>
 #include <rom/lldesc.h>
 #include <rom/gpio.h>
-#if (ESP_IDF_VERSION_MAJOR == 5)
-#include <driver/i2s_types.h> //includes struct and reg
+#if (ESP_IDF_VERSION_MAJOR >= 5)
+// Use legacy I2S driver for ESP-IDF 5.x compatibility
+#include <i2s.h>
+#include <soc/i2s_struct.h>
 #else
 #include <driver/i2s.h>
 #include <soc/i2s_struct.h>
